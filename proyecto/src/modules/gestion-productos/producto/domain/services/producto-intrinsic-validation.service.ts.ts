@@ -10,19 +10,20 @@ export class ProductoIntrinsicValidationService {
     denominacion: string;
     marcaId: number;
     lineaId: number;
+    costo?: number;
+    porcentaje?: number;
+    stock?: number;
+    utilizaStockMinimo?: boolean;
+    stockMinimo?: number;
     alicuotaIva?: number;
-    precioMayorista?: number;
-    precioCliente?: number;
-    precioOcasional?: number;
   }): void {
     this.validarDenominacion(datos.denominacion);
     this.validarIds(datos.marcaId, datos.lineaId);
-    this.validarPrecios(
-      datos.precioMayorista,
-      datos.precioCliente,
-      datos.precioOcasional,
-    );
-    
+    this.validarCosto(datos.costo);
+    this.validarPorcentaje(datos.porcentaje);
+    this.validarStock(datos.stock);
+    this.validarStockMinimo(datos.utilizaStockMinimo, datos.stockMinimo);
+
     if (datos.alicuotaIva !== undefined) {
       this.validarAlicuotaIva(datos.alicuotaIva);
     }
@@ -32,9 +33,9 @@ export class ProductoIntrinsicValidationService {
     if (!denominacion || denominacion.trim().length === 0) {
       throw new BadRequestException('La denominación es obligatoria');
     }
-    if (denominacion.length > 200) {
+    if (denominacion.length > 255) {
       throw new BadRequestException(
-        'La denominación no puede superar 200 caracteres',
+        'La denominación no puede superar 255 caracteres',
       );
     }
   }
@@ -49,52 +50,58 @@ export class ProductoIntrinsicValidationService {
     if (!lineaId || lineaId <= 0) {
       throw new BadRequestException('Línea ID es requerido y debe ser válido');
     }
-
   }
 
-  /**
-   * Valida la jerarquía de precios: Mayorista <= Cliente <= Ocasional
-   */
-  private validarPrecios(
-    precioMayorista?: number,
-    precioCliente?: number,
-    precioOcasional?: number,
+  private validarCosto(costo?: number): void {
+    if (costo !== undefined && costo !== null) {
+      if (typeof costo !== 'number' || isNaN(costo) || !isFinite(costo)) {
+        throw new BadRequestException('El costo debe ser un número válido');
+      }
+      if (costo < 0) {
+        throw new BadRequestException('El costo no puede ser negativo');
+      }
+    }
+  }
+
+  private validarPorcentaje(porcentaje?: number): void {
+    if (porcentaje !== undefined && porcentaje !== null) {
+      if (typeof porcentaje !== 'number' || isNaN(porcentaje) || !isFinite(porcentaje)) {
+        throw new BadRequestException('El porcentaje debe ser un número válido');
+      }
+      if (porcentaje < 0) {
+        throw new BadRequestException('El porcentaje no puede ser negativo');
+      }
+    }
+  }
+
+  private validarStock(stock?: number): void {
+    if (stock !== undefined && stock !== null) {
+      if (typeof stock !== 'number' || isNaN(stock) || !isFinite(stock)) {
+        throw new BadRequestException('El stock debe ser un número válido');
+      }
+      if (stock < 0) {
+        throw new BadRequestException('El stock no puede ser negativo');
+      }
+    }
+  }
+
+  private validarStockMinimo(
+    utilizaStockMinimo?: boolean,
+    stockMinimo?: number,
   ): void {
-    if (precioMayorista !== undefined && precioMayorista < 0) {
-      throw new BadRequestException(
-        'El precio mayorista no puede ser negativo',
-      );
-    }
-    if (precioCliente !== undefined && precioCliente < 0) {
-      throw new BadRequestException('El precio cliente no puede ser negativo');
-    }
-    if (precioOcasional !== undefined && precioOcasional < 0) {
-      throw new BadRequestException(
-        'El precio ocasional no puede ser negativo',
-      );
-    }
-
-    // Validar jerarquía: Mayorista <= Cliente <= Ocasional
-    if (precioMayorista && precioCliente) {
-      if (precioMayorista > precioCliente) {
-        throw new BadRequestException(
-          'El precio Mayorista no puede superar el precio Cliente',
-        );
+    if (stockMinimo !== undefined && stockMinimo !== null) {
+      if (typeof stockMinimo !== 'number' || isNaN(stockMinimo) || !isFinite(stockMinimo)) {
+        throw new BadRequestException('El stock mínimo debe ser un número válido');
+      }
+      if (stockMinimo < 0) {
+        throw new BadRequestException('El stock mínimo no puede ser negativo');
       }
     }
 
-    if (precioCliente && precioOcasional) {
-      if (precioCliente > precioOcasional) {
+    if (utilizaStockMinimo) {
+      if (stockMinimo === undefined || stockMinimo === null || isNaN(stockMinimo)) {
         throw new BadRequestException(
-          'El precio Cliente no puede superar el precio Ocasional',
-        );
-      }
-    }
-
-    if (precioMayorista && precioOcasional) {
-      if (precioMayorista > precioOcasional) {
-        throw new BadRequestException(
-          'El precio Mayorista no puede superar el precio Ocasional',
+          'Debe especificar un stock mínimo válido cuando utiliza stock mínimo',
         );
       }
     }

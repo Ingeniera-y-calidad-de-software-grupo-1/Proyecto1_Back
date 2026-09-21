@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   forwardRef,
   Inject,
   Injectable,
@@ -57,20 +58,26 @@ export class ProductoService {
 
   async create(dto: CreateProductoDto) {
     this.logger.log(
-      `Creando un nuevo ${this.ENTITY_NAME} con denominación: ${dto.denominacion} a: ${dto.denominacion}`,
+      `Creando un nuevo ${this.ENTITY_NAME} con denominación: ${dto.denominacion}`,
     );
 
-    // Orquestar todas las validaciones
+    // 1. Orquestar todas las validaciones de entrada y reglas de negocio
     const { marca, linea, usuario } =
       await this.validarYPrepararCreacion(dto);
 
+    // 2. Preparar Producto y calcular explícitamente el precio desde el dominio
+    const productoParaCalcular = new Producto();
+    productoParaCalcular.costo = dto.costo;
+    productoParaCalcular.porcentaje = dto.porcentaje;
+    const precioCalculado = productoParaCalcular.calcularPrecio();
 
+    // 3. El precio persistido proviene exclusivamente del cálculo del dominio (precio manual ignorado)
+    dto.precio = precioCalculado.valor;
 
     const entity = await this.repository.create(
       dto,
       linea,
       marca,
-
       usuario,
     );
 
@@ -82,7 +89,7 @@ export class ProductoService {
   }
 
   async update(id: number, dto: UpdateProductoDto) {
-    this.logger.log(`Actualizandox  ${this.ENTITY_NAME} con ID: ${id}`);
+    this.logger.log(`Actualizando ${this.ENTITY_NAME} con ID: ${id}`);
 
     const { marca, linea, usuario } =
       await this.validarYPrepararActualizacion(id, dto);
@@ -92,7 +99,6 @@ export class ProductoService {
       dto,
       linea,
       marca,
-
       usuario,
     );
 
@@ -290,14 +296,17 @@ export class ProductoService {
   ): Promise<number> {
     const producto = await this.repository.findOne(productoId);
     if (!producto) {
-      throw new Error(`Producto con ID ${productoId} no encontrado`);
+      throw new NotFoundException(`Producto con ID ${productoId} no encontrado`);
     }
 
     const stockActual = producto.stock ?? 0;
     const nuevoStock = stockActual + delta;
 
-    // Política opcional
-    // if (nuevoStock < 0) throw ...
+    if (nuevoStock < 0) {
+      throw new BadRequestException(
+        `El stock resultante (${nuevoStock}) no puede ser negativo. Stock actual: ${stockActual}, ajuste solicitado: ${delta}.`,
+      );
+    }
 
     producto.stock = nuevoStock;
     await this.repository.updateEntity(uow, producto);
@@ -314,11 +323,16 @@ export class ProductoService {
    * @private
    */
   private async validarYPrepararCreacion(dto: CreateProductoDto) {
-    // Validar datos  (Domain - sin DB)
+    // Validar datos intrínsecos (Domain - sin DB)
     this.intrinsicValidationService.validarDatosBasicos({
       denominacion: dto.denominacion,
       marcaId: dto.marcaId,
       lineaId: dto.lineaId,
+      costo: dto.costo,
+      porcentaje: dto.porcentaje,
+      stock: dto.stock,
+      utilizaStockMinimo: dto.utilizaStockMinimo,
+      stockMinimo: dto.stockMinimo,
       alicuotaIva: dto.alicuotaIva,
     });
 
@@ -332,20 +346,17 @@ export class ProductoService {
       );
     }
     // 3 Validar entidades relacionadas existen (Infrastructure - DB)
-    const { marca, linea, } =
+    const { marca, linea } =
       await this.relatedEntitiesValidator.validarYObtenerEntidadesRelacionadas(
         dto.marcaId,
         dto.lineaId,
-
       );
 
     //  Validar reglas de negocio sobre entidades (Domain)
     this.validationService.validarEntidadesRelacionadas(
       marca,
       linea,
-
     );
-
 
     //  Validar usuario existe (Infrastructure)
     const usuario = await this.usuarioValidator.validarUsuarioExiste(
@@ -354,6 +365,7 @@ export class ProductoService {
 
     return { marca, linea, usuario };
   }
+
   /**
    * Orquesta todas las validaciones necesarias para actualizar un producto
    * @private
@@ -376,14 +388,35 @@ export class ProductoService {
       throw new InternalServerErrorException('Producto en estado inválido');
     }
 
-    //  Validar datos intrínsecos
+    const costoEfectivo = dto.costo !== undefined ? dto.costo : productoActual.costo;
+    const porcentajeEfectivo = dto.porcentaje !== undefined ? dto.porcentaje : productoActual.porcentaje;
+    const stockEfectivo = dto.stock !== undefined ? dto.stock : productoActual.stock;
+    const utilizaStockMinimoEfectivo =
+      dto.utilizaStockMinimo !== undefined ? dto.utilizaStockMinimo : productoActual.utilizaStockMinimo;
+    const stockMinimoEfectivo =
+      dto.stockMinimo !== undefined ? dto.stockMinimo : productoActual.stockMinimo;
+
+    // Validar datos intrínsecos combinados
     this.intrinsicValidationService.validarDatosBasicos({
       denominacion: dto.denominacion ?? productoActual.denominacion,
       marcaId: dto.marcaId ?? productoActual.marcaId,
       lineaId: dto.lineaId ?? productoActual.lineaId,
+      costo: costoEfectivo,
+      porcentaje: porcentajeEfectivo,
+      stock: stockEfectivo,
+      utilizaStockMinimo: utilizaStockMinimoEfectivo,
+      stockMinimo: stockMinimoEfectivo,
       alicuotaIva: dto.alicuotaIva ?? productoActual.alicuotaIva,
-
     });
+
+    // Recalcular explícitamente el precio con el dominio si hay costo definido
+    if (costoEfectivo !== undefined && costoEfectivo !== null) {
+      const productoParaCalcular = new Producto();
+      productoParaCalcular.costo = costoEfectivo;
+      productoParaCalcular.porcentaje = porcentajeEfectivo;
+      const precioRecalculado = productoParaCalcular.calcularPrecio();
+      dto.precio = precioRecalculado.valor;
+    }
 
     // Validar unicidad (excluyendo el ID actual)
     if (dto.denominacion) {
@@ -394,27 +427,23 @@ export class ProductoService {
     }
 
     // Validar entidades relacionadas
-    const { marca, linea, } =
+    const { marca, linea } =
       await this.relatedEntitiesValidator.validarYObtenerEntidadesRelacionadas(
         dto.marcaId ?? productoActual.marcaId,
         dto.lineaId ?? productoActual.lineaId,
-
       );
 
-    //  Validar reglas de negocio
+    // Validar reglas de negocio
     this.validationService.validarEntidadesRelacionadas(
       marca,
       linea,
-
     );
 
-    // 5 Validar usuario
+    // Validar usuario
     const usuario = await this.usuarioValidator.validarUsuarioExiste(
       dto.usuarioUpdatedId,
     );
 
     return { marca, linea, usuario };
   }
-
-
 }

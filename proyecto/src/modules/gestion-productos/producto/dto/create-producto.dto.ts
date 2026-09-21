@@ -9,20 +9,17 @@ import {
   IsNumber,
   IsInt,
   IsEnum,
+  Min,
 } from 'class-validator';
 import { AlicuotaIva } from 'src/modules/organizacion/enums/alicuota-iva.enum';
 
 export class CreateProductoDto {
-  @Transform(({ value }) => value.trim().toLowerCase())
-  @IsString({ message: 'La denominación debe ser una cadena de texto.' }) // Valida que sea string
-  @IsNotEmpty({ message: 'La denominación no puede estar vacía.' }) // Valida que no esté vacía
-  @MaxLength(255, { message: 'La denominación no puede estar vacía.' })
-  /*  @Matches(/^[A-Za-z0-9 áéíóúÁÉÍÓÚñÑ.\-/]+$/, {
-    message:
-      'La denominación solo puede contener letras, números, espacios, puntos, guiones y barras.',
-  }) */
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
+  @IsString({ message: 'La denominación debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'La denominación no puede estar vacía.' })
+  @MaxLength(255, { message: 'La denominación no puede superar 255 caracteres.' })
   @Matches(/^[\w áéíóúÁÉÍÓÚñÑ.\-/%]+$/, {
-    message: 'La denominación contiene caracteres inválidos ',
+    message: 'La denominación contiene caracteres inválidos.',
   })
   denominacion: string;
 
@@ -51,11 +48,13 @@ export class CreateProductoDto {
   utilizaStockMinimo: boolean;
 
   @IsOptional()
-  @IsInt()
+  @IsNumber({}, { message: 'El stock mínimo debe ser un número.' })
+  @Min(0, { message: 'El stock mínimo no puede ser negativo.' })
   stockMinimo?: number;
 
   @IsOptional()
-  @IsInt()
+  @IsNumber({}, { message: 'El stock debe ser un número.' })
+  @Min(0, { message: 'El stock no puede ser negativo.' })
   stock?: number;
 
   @IsOptional()
@@ -73,9 +72,10 @@ export class CreateProductoDto {
   @Transform(({ value }) => value === 'true' || value === true)
   envioGratis?: boolean;
 
-  @IsOptional()
-  @IsNumber()
-  costo?: number;
+  @IsNotEmpty({ message: 'El costo es obligatorio.' })
+  @IsNumber({}, { message: 'El costo debe ser un número.' })
+  @Min(0, { message: 'El costo no puede ser negativo.' })
+  costo: number;
 
   @IsBoolean()
   utilizaPack: boolean;
@@ -99,12 +99,13 @@ export class CreateProductoDto {
 
 
   @IsOptional()
-  @IsNumber()
+  @IsNumber({}, { message: 'El porcentaje debe ser un número.' })
+  @Min(0, { message: 'El porcentaje no puede ser negativo.' })
   porcentaje?: number;
 
   @IsOptional()
-  @IsNumber()
-  precio: number;
+  @IsNumber({}, { message: 'El precio debe ser un número.' })
+  precio?: number;
 
   createdAt?: Date;
 
