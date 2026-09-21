@@ -79,16 +79,29 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     
     this.logger.error('═══════════════════════════════════════════════════════');
 
-    // Respuesta al cliente
+    // Obtener mensaje comprensible para el cliente (preservando class-validator y BadRequestException)
+    let clientMessage: any = 'Internal Server Error';
+    if (exception instanceof HttpException) {
+      const exceptionResponse = exception.getResponse();
+      if (typeof exceptionResponse === 'object' && exceptionResponse !== null && 'message' in exceptionResponse) {
+        clientMessage = (exceptionResponse as any).message;
+      } else if (typeof exceptionResponse === 'string') {
+        clientMessage = exceptionResponse;
+      } else {
+        clientMessage = exception.message || 'Bad Request';
+      }
+    } else if (exception instanceof Error) {
+      clientMessage = status === HttpStatus.INTERNAL_SERVER_ERROR
+        ? 'Internal Server Error'
+        : exception.message;
+    }
+
+    // Respuesta al cliente (sin exponer stacks ni detalles internos)
     const errorResponse = {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
-      message: exception?.message || 'Internal Server Error',
-      ...(process.env.NODE_ENV === 'development' && { 
-        stack: exception?.stack,
-        details: exception?.response 
-      })
+      message: clientMessage,
     };
 
     response.status(status).json(errorResponse);

@@ -18,6 +18,7 @@ import { MonetarioColumn } from 'src/modules/common/decorators/monetario-column.
 import { CantidadColumn } from 'src/modules/common/decorators/cantidad-column.decorator';
 import { PorcentajeColumn } from 'src/modules/common/decorators/porcentaje-column.decorator';
 import { Proveedor } from 'src/modules/organizacion/proveedor/domain/entities/proveedor.entity';
+import { Margen, Precio } from '../value-objects';
 
 @Entity('producto')
 export class Producto {
@@ -172,4 +173,31 @@ export class Producto {
 
   @Column({ type: 'text', nullable: true })
   codigoReferencia?: string | null;
+
+  /**
+   * Calcula el precio del producto a partir del costo actual y del margen comercial.
+   * Utiliza la regla del dominio: Precio = Costo * (1 + Margen / 100).
+   * Adapta el valor persistido `porcentaje` al Value Object `Margen`.
+   * Actualiza el atributo `precio` de la entidad y retorna el Value Object `Precio`.
+   */
+  calcularPrecio(): Precio {
+    if (this.costo === undefined || this.costo === null) {
+      throw new Error('No se puede calcular el precio sin un costo definido');
+    }
+
+    if (typeof this.costo !== 'number' || isNaN(this.costo) || !isFinite(this.costo)) {
+      throw new Error('El costo debe ser un número válido');
+    }
+
+    if (this.costo < 0) {
+      throw new Error('El costo no puede ser negativo');
+    }
+
+    const margen = new Margen(this.porcentaje);
+    const precioCalculado = this.costo * (1 + margen.valor / 100);
+    const precioVO = new Precio(precioCalculado);
+
+    this.precio = precioVO.valor;
+    return precioVO;
+  }
 }
