@@ -47,6 +47,7 @@ export class LineaPersistenceAdapter
         stockMinimo: data.stockMinimo,
         usuarioCreatedId: data.usuarioCreatedId,
         observacion: data.observacion,
+        superLineaId: data.superLineaId,
       });
 
       const entityGuardada = await repo.save(nuevaEntity);
@@ -80,7 +81,8 @@ export class LineaPersistenceAdapter
     entity.denominacion = data.denominacion ?? entity.denominacion;
     entity.utilizaStockMinimo = data.utilizaStockMinimo;
     entity.stockMinimo = data.stockMinimo ?? 0;
-    entity.usuarioCreatedId = data.usuarioCreatedId;
+    entity.superLineaId = data.superLineaId ?? entity.superLineaId;
+    entity.usuarioUpdatedId = data.usuarioUpdatedId;
 
     // Guardar entidad antes de procesar sublíneas (opcional según lógica de negocio)
     const entityActualizada = await repo.save(entity);
@@ -92,6 +94,7 @@ export class LineaPersistenceAdapter
     try {
       const entity = await this.repository
         .createQueryBuilder('linea')
+        .leftJoinAndSelect('linea.superLinea', 'superLinea')
         .where('linea.id = :id', { id })
         .andWhere('linea.deletedAt IS NULL')
         .getOne();
@@ -117,6 +120,7 @@ export class LineaPersistenceAdapter
   async findAllListado(): Promise<Linea[]> {
     try {
       const query = this.baseQuery();
+      query.leftJoinAndSelect('linea.superLinea', 'superLinea');
       QueryBuilderHelper.applyOrder(query, this.ALIAS, 'denominacion', 'ASC');
       return await query.getMany();
     } catch (error) {
@@ -178,7 +182,8 @@ export class LineaPersistenceAdapter
     incluirEliminados = false,
   ): Promise<{ data: Linea[]; total: number }> {
     try {
-      const query = this.baseQuery(incluirEliminados)
+      const query = this.baseQuery(incluirEliminados);
+      query.leftJoinAndSelect('linea.superLinea', 'superLinea');
 
       if (denominacion) {
         query.andWhere(`UPPER(${this.ALIAS}.denominacion) LIKE :denominacion`, {
@@ -198,7 +203,8 @@ export class LineaPersistenceAdapter
 
   async findAllFor(denominacion: string): Promise<Linea[]> {
     try {
-      const query = this.baseQuery()
+      const query = this.baseQuery();
+      query.leftJoinAndSelect('linea.superLinea', 'superLinea');
       query.andWhere('UPPER(linea.denominacion) LIKE :denominacion', {
         denominacion: `%${denominacion.toUpperCase()}%`,
       });

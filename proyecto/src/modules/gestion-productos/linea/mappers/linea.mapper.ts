@@ -7,15 +7,20 @@ export class LineaMapper {
   private static readonly logger = new Logger(LineaMapper.name);
 
   static toDto(entity: Linea): LineaDto {
-    return {
-      id: entity.id,
-      denominacion: entity.denominacion,
-      stockMinimo: entity.stockMinimo,
-      utilizaStockMinimo: entity.utilizaStockMinimo,
-      observacion: entity.observacion ?? '',
-      sistema: entity.sistema,
-      deletedAt: entity.deletedAt ? entity.deletedAt.toISOString() : null,
-
-    };
-  }
+  return {
+    id: entity.id,
+    denominacion: entity.denominacion,
+    stockMinimo: entity.stockMinimo,
+    utilizaStockMinimo: entity.utilizaStockMinimo,
+    observacion: entity.observacion ?? '',
+    sistema: entity.sistema,
+    deletedAt: entity.deletedAt
+      ? entity.deletedAt.toISOString()
+      : null,
+    superLinea: {
+      id: entity.superLinea.id,
+      denominacion: entity.superLinea.denominacion,
+    },
+  };
+}
 }

@@ -15,6 +15,18 @@ export class LineaDto {
   id: number;
 
   @ApiProperty({
+  example: {
+    id: 1,
+    denominacion: 'Alimentos',
+  },
+  description: 'SuperLínea a la que pertenece la línea',
+})
+superLinea: {
+  id: number;
+  denominacion: string;
+};
+
+  @ApiProperty({
     example: 'tornillos',
     description: 'Denominación o nombre dela linea',
   })

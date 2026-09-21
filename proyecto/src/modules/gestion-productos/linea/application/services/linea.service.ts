@@ -17,6 +17,7 @@ import { LineaDto } from '../../dto/linea.dto';
 import { LineaMapper } from '../../mappers/linea.mapper';
 import { PoliticaEliminacionLinea } from '../../domain/services/politica-eliminacion-linea.service';
 import { Linea } from '../../domain/entities/linea.entity';
+import { SuperLineaService } from '../../../superlinea/application/services/superlinea.service';
 
 @Injectable()
 export class LineaService {
@@ -28,45 +29,54 @@ export class LineaService {
     @Inject(forwardRef(() => PoliticaEliminacionLinea))
     private readonly validacionesService: PoliticaEliminacionLinea,
     private readonly usuarioService: UsuarioService,
-
+    private readonly superLineaService: SuperLineaService,
   ) { }
 
   private readonly ENTITY_NAME = 'Linea';
 
   async create(dto: CreateLineaDto) {
-    this.logger.log(
-      `Creando un nuevo ${this.ENTITY_NAME} con denominación: ${dto.denominacion} a: ${dto.denominacion}`,
-    );
-    await this.checkDenominacionExists(dto.denominacion, 0);
+  this.logger.log(
+    `Creando un nuevo ${this.ENTITY_NAME} con denominación: ${dto.denominacion}`,
+  );
 
+  await this.checkDenominacionExists(dto.denominacion, 0);
 
-    const entity = await this.repository.create(dto);
+  // RN-CR003-02:
+  // la SuperLínea debe existir y estar activa.
+  await this.superLineaService.findById(dto.superLineaId);
 
+  const entity = await this.repository.create(dto);
 
-    return MessageFrontUtils.createSimple(
-      `${this.ENTITY_NAME}`,
-      entity.denominacion,
-      'creada',
-    );
-  }
+  return MessageFrontUtils.createSimple(
+    `${this.ENTITY_NAME}`,
+    entity.denominacion,
+    'creada',
+  );
+}
 
   async update(id: number, dto: UpdateLineaDto) {
-    this.logger.log(`Actualizando  ${this.ENTITY_NAME} con ID: ${id}`);
+  this.logger.log(`Actualizando ${this.ENTITY_NAME} con ID: ${id}`);
 
+  const linea = await this.findEntityById(id);
 
-    const linea = await this.findEntityById(id); // Verifica existencia
-    ensureNotSistemaEntity(linea, 'Linea');
-    if (dto.denominacion)
-      await this.checkDenominacionExists(dto.denominacion, id);
+  ensureNotSistemaEntity(linea, 'Linea');
 
-
-    const entity = await this.repository.update(id, dto);
-    return MessageFrontUtils.createSimple(
-      `${this.ENTITY_NAME}`,
-      entity.denominacion,
-      'editada',
-    );
+  if (dto.denominacion) {
+    await this.checkDenominacionExists(dto.denominacion, id);
   }
+
+  if (dto.superLineaId !== undefined) {
+    await this.superLineaService.findById(dto.superLineaId);
+  }
+
+  const entity = await this.repository.update(id, dto);
+
+  return MessageFrontUtils.createSimple(
+    `${this.ENTITY_NAME}`,
+    entity.denominacion,
+    'editada',
+  );
+}
 
   async findByDenominacionFiltered(
     denominacion: string,
@@ -142,8 +152,8 @@ export class LineaService {
     const entity = await this.repository.findOne(id);
 
     if (!entity) {
-      throw new NotFoundException(
-        `${this.ENTITY_NAME} con ID ${id} no encontrado.`,
+      throw new ConflictException(
+        'No se puede eliminar la línea porque está asociada a productos activos.',
       );
     }
 

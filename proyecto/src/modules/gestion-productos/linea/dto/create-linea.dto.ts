@@ -31,6 +31,9 @@ export class CreateLineaDto {
   @IsOptional()
   @IsString()
   observacion?: string;
+  @IsNotEmpty({ message: 'La superLínea es obligatoria.' })
+  @IsInt({ message: 'La superLínea debe ser un identificador válido.' })
+  superLineaId: number;
 
   createdAt?: Date;
 
