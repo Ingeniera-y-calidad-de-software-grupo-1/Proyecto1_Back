@@ -15,7 +15,7 @@ import { ensureNotSistemaEntity } from 'src/modules/common/utils/atrituto-sistem
 import { AuditoriaMapper } from 'src/modules/gestion-sistema/auditoria/mappers/auditoria.mapper';
 import { MessageFrontUtils } from 'src/modules/common/utils/message/message-front.util';
 import { Producto } from '../../domain/entities/producto.entity';
-import { IProductoRepository } from '../../domain/interfaces/producto.repository-interface';
+import { IProductoRepository, BuscarProductoCriteria } from '../../domain/interfaces/producto.repository-interface';
 import { CreateProductoDto } from '../../dto/create-producto.dto';
 import { GetProductoDto } from '../../dto/get-producto.dto';
 import { UpdateProductoDto } from '../../dto/update-producto.dto';
@@ -132,30 +132,9 @@ export class ProductoService {
 
 
   async findBy(
-    denominacion: string,
-    codigoProveedor: string,
-    codProveedorExacto: boolean,
-    codigoReferencia: string,
-    marca_id: number,
-    linea_id: number,
-    proveedor_id: number,
-    conStock: boolean,
-    skip: number,
-    take: number,
+    criteria: BuscarProductoCriteria,
   ): Promise<{ data: GetProductoDto[]; total: number }> {
-    this.logger.warn(`service`);
-    const result = await this.repository.findBy(
-      denominacion,
-      codigoProveedor,
-      codProveedorExacto,
-      codigoReferencia,
-      marca_id,
-      linea_id,
-      proveedor_id,
-      conStock,
-      skip,
-      take,
-    );
+    const result = await this.repository.findBy(criteria);
     return {
       data: result.data.map((producto) => {
         return ProductoMapper.toBusquedaDto(producto);

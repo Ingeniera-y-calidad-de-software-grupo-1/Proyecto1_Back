@@ -8,6 +8,14 @@ export class SearchProductoPaginationWithDto {
 
   @IsOptional()
   @IsString()
+  denominacionLinea?: string;
+
+  @IsOptional()
+  @IsString()
+  denominacionSuperLinea?: string;
+
+  @IsOptional()
+  @IsString()
   codigoProveedor: string;
  
   @IsOptional()

@@ -7,6 +7,10 @@ import { IUnitOfWork } from 'src/modules/common/unit-of-work/iunit-of-work.';
 import { Usuario } from 'src/modules/gestion-usuario/usuario/domain/entities/usuario.entity';
 import { UpdatePrecioDto } from '../../dto/update-precio.dto';
 
+import { BuscarProductoCriteria } from './buscar-producto.criteria';
+
+export { BuscarProductoCriteria };
+
 export interface IProductoRepository {
 
   create(
@@ -21,16 +25,7 @@ export interface IProductoRepository {
   findByDenominacion(denominacion: string): Promise<Producto | null>;
 
   findBy(
-    denominacion: string,
-    codigoProveedor: string,
-    codProveedorExacto: boolean,
-    codigoReferencia: string,
-    marca_id: number,
-    linea_id: number,
-    proveedor_id: number,
-    conStock: boolean,
-    skip: number,
-    take: number,
+    criteria: BuscarProductoCriteria,
   ): Promise<{ data: Producto[]; total: number }>;
 
   findByRapido(

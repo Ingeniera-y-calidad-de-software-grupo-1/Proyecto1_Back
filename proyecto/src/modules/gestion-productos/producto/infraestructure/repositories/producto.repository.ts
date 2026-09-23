@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CreateProductoDto } from '../../dto/create-producto.dto';
 import { Producto } from '../../domain/entities/producto.entity';
-import { IProductoRepository } from '../../domain/interfaces/producto.repository-interface';
+import { IProductoRepository, BuscarProductoCriteria } from '../../domain/interfaces/producto.repository-interface';
 import { ProductoPersistenceAdapter } from './producto.persistence-adapters';
 import { Linea } from '../../../linea/domain/entities/linea.entity';
 import { Marca } from '../../../marca/domain/entities/marca.entity';
@@ -71,29 +71,9 @@ export class ProductoRepository implements IProductoRepository {
 
 
   async findBy(
-    denominacion: string,
-    codigoProveedor: string,
-    codProveedorExacto: boolean,
-    codigoReferencia: string,
-    marca_id: number,
-    linea_id: number,
-    proveedor_id: number,
-    conStock: boolean,
-    skip: number,
-    take: number,
+    criteria: BuscarProductoCriteria,
   ): Promise<{ data: Producto[]; total: number }> {
-    return this.persistenceService.findBy(
-      denominacion,
-      codigoProveedor,
-      codProveedorExacto,
-      codigoReferencia,
-      marca_id,
-      linea_id,
-      proveedor_id,
-      conStock,
-      skip,
-      take,
-    );
+    return this.persistenceService.findBy(criteria);
   }
 
   async findByRapido(

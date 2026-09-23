@@ -108,30 +108,7 @@ export class ProductoController {
   )
   @UsePipes(NormalizeDenominacionSearchPipe)
   async search(@Query() dto: SearchProductoPaginationWithDto) {
-    const {
-      denominacion = '',
-      codProveedorExacto,
-      codigoProveedor,
-      codigoReferencia,
-      marcaId,
-      lineaId,
-      proveedorId,
-      conStock,
-      skip,
-      take,
-    } = dto;
-    return this.service.findBy(
-      denominacion,
-      codigoProveedor,
-      codProveedorExacto,
-      codigoReferencia,
-      marcaId,
-      lineaId,
-      proveedorId,
-      conStock,
-      skip,
-      take,
-    );
+    return this.service.findBy(dto);
   }
 
   @Get('marca/:id')

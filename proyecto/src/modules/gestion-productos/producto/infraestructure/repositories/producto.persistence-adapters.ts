@@ -9,11 +9,18 @@ import { Marca } from 'src/modules/gestion-productos/marca/domain/entities/marca
 import { Usuario } from 'src/modules/gestion-usuario/usuario/domain/entities/usuario.entity';
 import { Repository, IsNull, DataSource } from 'typeorm';
 import { Producto } from '../../domain/entities/producto.entity';
-import { IProductoRepository } from '../../domain/interfaces/producto.repository-interface';
+import { IProductoRepository, BuscarProductoCriteria } from '../../domain/interfaces/producto.repository-interface';
 import { CreateProductoDto } from '../../dto/create-producto.dto';
 import { UpdatePrecioDto } from '../../dto/update-precio.dto';
 import { UpdateProductoDto } from '../../dto/update-producto.dto';
 import { ProductoMapper } from '../../mappers/producto.mapper';
+
+export function escapeLikeWildcards(value: string): string {
+  return value
+    .replace(/!/g, '!!')
+    .replace(/%/g, '!%')
+    .replace(/_/g, '!_');
+}
 
 
 @Injectable()
@@ -217,32 +224,38 @@ export class ProductoPersistenceAdapter implements IProductoRepository {
   }
 
   async findBy(
-    denominacion: string,
-    codigoProveedor: string,
-    codProveedorExacto: boolean,
-    codigoReferencia: string,
-    marca_id: number,
-    linea_id: number,
-    proveedor_id: number,
-    conStock: boolean,
-    skip: number,
-    take: number,
+    criteria: BuscarProductoCriteria,
   ): Promise<{ data: Producto[]; total: number }> {
-    this.logger.warn(`llega`);
+    const {
+      denominacion,
+      denominacionLinea,
+      denominacionSuperLinea,
+      codigoProveedor,
+      codProveedorExacto,
+      codigoReferencia,
+      marcaId,
+      lineaId,
+      conStock,
+      skip = 0,
+      take = 10,
+    } = criteria;
+
     const query = this.repository
       .createQueryBuilder('producto')
       .leftJoinAndSelect('producto.marca', 'marca')
       .leftJoinAndSelect('producto.linea', 'linea')
+      .leftJoinAndSelect('linea.superLinea', 'superLinea');
 
+    // 1. Bloque histórico con OR: (denominacion OR codigoProveedor OR codigoReferencia)
     if (denominacion || codigoProveedor || codigoReferencia) {
       const condiciones: string[] = [];
       const parametros: any = {};
 
       if (denominacion) {
         condiciones.push(
-          `UPPER(producto.denominacion) LIKE UPPER(:denominacion)`,
+          `UPPER(producto.denominacion) LIKE UPPER(:denominacion) ESCAPE '!'`,
         );
-        parametros.denominacion = `%${denominacion}%`;
+        parametros.denominacion = `%${escapeLikeWildcards(denominacion)}%`;
       }
 
       if (codigoProveedor) {
@@ -253,41 +266,67 @@ export class ProductoPersistenceAdapter implements IProductoRepository {
           parametros.codigoProveedor = codigoProveedor;
         } else {
           condiciones.push(
-            `UPPER(producto.codigoProveedor) LIKE UPPER(:codigoProveedor)`,
+            `UPPER(producto.codigoProveedor) LIKE UPPER(:codigoProveedor) ESCAPE '!'`,
           );
-          parametros.codigoProveedor = `%${codigoProveedor}%`;
+          parametros.codigoProveedor = `%${escapeLikeWildcards(codigoProveedor)}%`;
         }
       }
 
       if (codigoReferencia) {
         condiciones.push(
-          `UPPER(producto.codigoReferencia) LIKE UPPER(:codigoReferencia)`,
+          `UPPER(producto.codigoReferencia) LIKE UPPER(:codigoReferencia) ESCAPE '!'`,
         );
-        parametros.codigoReferencia = `%${codigoReferencia}%`;
+        parametros.codigoReferencia = `%${escapeLikeWildcards(codigoReferencia)}%`;
       }
 
       query.andWhere(`(${condiciones.join(' OR ')})`, parametros);
     }
 
-    if (marca_id) {
-      query.andWhere('marca.id = :marca_id', { marca_id });
-    }
-    if (linea_id) {
-      query.andWhere('linea.id = :linea_id', { linea_id });
+    // 2. CR-004: Búsqueda parcial por Línea mediante AND independiente
+    if (denominacionLinea && denominacionLinea.trim() !== '') {
+      query.andWhere(
+        `UPPER(linea.denominacion) LIKE UPPER(:denominacionLinea) ESCAPE '!'`,
+        {
+          denominacionLinea: `%${escapeLikeWildcards(denominacionLinea.trim())}%`,
+        },
+      );
     }
 
-    this.logger.warn(`conStock llega como: ${conStock} (${typeof conStock})`);
+    // 3. CR-004: Búsqueda parcial por SuperLínea mediante AND independiente
+    if (denominacionSuperLinea && denominacionSuperLinea.trim() !== '') {
+      query.andWhere(
+        `UPPER(superLinea.denominacion) LIKE UPPER(:denominacionSuperLinea) ESCAPE '!'`,
+        {
+          denominacionSuperLinea: `%${escapeLikeWildcards(denominacionSuperLinea.trim())}%`,
+        },
+      );
+    }
+
+    // 4. Filtros exactos existentes
+    if (marcaId) {
+      query.andWhere('marca.id = :marca_id', { marca_id: marcaId });
+    }
+
+    // 5. RN-CR004-12: lineaId convive acumulativamente con denominacionLinea mediante AND
+    if (lineaId) {
+      query.andWhere('linea.id = :linea_id', { linea_id: lineaId });
+    }
 
     if (conStock) {
       query.andWhere('producto.stock > 0');
     }
+
+    // NOTA AUDITORÍA: proveedorId se recibe en criteria pero históricamente no se aplicó al query.
+    // Conforme a la directiva obligatoria de CR-004, NO se altera este comportamiento preexistente.
+
     query.andWhere('producto.deletedAt IS NULL');
     query.orderBy('producto.denominacion', 'ASC');
+
     // Paginación
     query.skip(skip).take(take);
 
     const [data, total] = await query.getManyAndCount();
-    this.logger.warn(`conStock llega como 1: ${data}`);
+
     return {
       data,
       total,
