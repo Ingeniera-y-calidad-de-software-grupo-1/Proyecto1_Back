@@ -5,6 +5,8 @@ import { IsNull, Repository } from 'typeorm';
 import { SuperLinea } from '../../domain/entities/superlinea.entity';
 import { ISuperLineaRepository } from '../../domain/interfaces/superlinea.repository.interface';
 import { Linea } from '../../../linea/domain/entities/linea.entity';
+import { AuditoriaDto } from 'src/modules/gestion-sistema/auditoria/dto/auditoria.dto';
+import { FechaUtils } from 'src/modules/common/utils/date/fecha-utils';
 
 @Injectable()
 export class SuperLineaRepository implements ISuperLineaRepository {
@@ -50,6 +52,95 @@ export class SuperLineaRepository implements ISuperLineaRepository {
       },
     });
   }
+
+  async findByDenominacionFiltered(
+  denominacion: string,
+  skip = 0,
+  take = 10,
+  incluirEliminados = false,
+): Promise<{ data: SuperLinea[]; total: number }> {
+  const query = this.repository.createQueryBuilder('superlinea');
+
+  if (incluirEliminados) {
+    query.withDeleted();
+  } else {
+    query.andWhere('superlinea.deletedAt IS NULL');
+  }
+
+  if (denominacion) {
+    query.andWhere(
+      'UPPER(superlinea.denominacion) LIKE :denominacion',
+      {
+        denominacion: `%${denominacion.toUpperCase()}%`,
+      },
+    );
+  }
+
+  query
+    .orderBy('superlinea.denominacion', 'ASC')
+    .skip(skip)
+    .take(take);
+
+  const [data, total] = await query.getManyAndCount();
+
+  return { data, total };
+}
+
+async findByIdConAuditoria(
+  id: number,
+): Promise<AuditoriaDto | null> {
+  const raw = await this.repository
+    .createQueryBuilder('superlinea')
+    .withDeleted()
+    .leftJoin(
+      'usuario',
+      'usuarioCreated',
+      'usuarioCreated.id = superlinea.usuarioCreatedId',
+    )
+    .leftJoin(
+      'usuario',
+      'usuarioUpdated',
+      'usuarioUpdated.id = superlinea.usuarioUpdatedId',
+    )
+    .leftJoin(
+      'usuario',
+      'usuarioDeleted',
+      'usuarioDeleted.id = superlinea.usuarioDeletedId',
+    )
+    .addSelect([
+      'superlinea.id as superlinea_id',
+      'superlinea.denominacion as superlinea_denominacion',
+      'superlinea.createdAt as superlinea_createdAt',
+      'superlinea.updatedAt as superlinea_updatedAt',
+      'superlinea.deletedAt as superlinea_deletedAt',
+      'usuarioCreated.denominacion as usuarioCreated_nombre',
+      'usuarioUpdated.denominacion as usuarioUpdated_nombre',
+      'usuarioDeleted.denominacion as usuarioDeleted_nombre',
+    ])
+    .where('superlinea.id = :id', { id })
+    .getRawOne();
+
+  if (!raw) return null;
+
+  return {
+    id: raw.superlinea_id ?? 0,
+    detalle: raw.superlinea_denominacion
+      ? `superlínea ${raw.superlinea_denominacion}`
+      : 'superlínea (sin denominación)',
+    createdAt: raw.superlinea_createdAt
+      ? FechaUtils.formatFechaHora(raw.superlinea_createdAt)
+      : '',
+    updatedAt: raw.superlinea_updatedAt
+      ? FechaUtils.formatFechaHora(raw.superlinea_updatedAt)
+      : '',
+    deletedAt: raw.superlinea_deletedAt
+      ? FechaUtils.formatFechaHora(raw.superlinea_deletedAt)
+      : '',
+    usuarioCreated: raw.usuarioCreated_nombre ?? '',
+    usuarioUpdated: raw.usuarioUpdated_nombre ?? '',
+    usuarioDeleted: raw.usuarioDeleted_nombre ?? '',
+  };
+}
 
   async update(
     id: number,

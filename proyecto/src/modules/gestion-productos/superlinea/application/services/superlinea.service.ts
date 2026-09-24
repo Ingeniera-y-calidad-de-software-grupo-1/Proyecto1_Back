@@ -14,6 +14,9 @@ import {
 import { SuperLineaDeletionPolicy } from '../../domain/services/superlinea-deletion.policy';
 import { CreateSuperLineaDto } from '../../dto/create-superlinea.dto';
 import { UpdateSuperLineaDto } from '../../dto/update-superlinea.dto';
+import { AuditoriaDto } from 'src/modules/gestion-sistema/auditoria/dto/auditoria.dto';
+import { PaginacionUtils } from 'src/modules/common/utils/pagination/paginacion-utils';
+import { MessageFrontUtils } from 'src/modules/common/utils/message/message-front.util';
 
 @Injectable()
 export class SuperLineaService {
@@ -24,25 +27,31 @@ export class SuperLineaService {
     private readonly deletionPolicy: SuperLineaDeletionPolicy,
   ) {}
 
-  async create(dto: CreateSuperLineaDto): Promise<SuperLinea> {
-    const denominacion = this.normalizeDenominacion(dto.denominacion);
+  async create(dto: CreateSuperLineaDto) {
+  const denominacion = this.normalizeDenominacion(dto.denominacion);
 
-    const existing =
-      await this.superLineaRepository.findByDenominacion(denominacion);
+  const existing =
+    await this.superLineaRepository.findByDenominacion(denominacion);
 
-    if (existing) {
-      throw new ConflictException(
-        'Ya existe una superlínea con esa denominación.',
-      );
-    }
-
-    const superLinea = new SuperLinea();
-    superLinea.denominacion = denominacion;
-    superLinea.observacion = dto.observacion?.trim() || undefined;
-    superLinea.usuarioCreatedId = dto.usuarioCreatedId;
-
-    return this.superLineaRepository.create(superLinea);
+  if (existing) {
+    throw new ConflictException(
+      'Ya existe una superlínea con esa denominación.',
+    );
   }
+
+  const superLinea = new SuperLinea();
+  superLinea.denominacion = denominacion;
+  superLinea.observacion = dto.observacion?.trim() || undefined;
+  superLinea.usuarioCreatedId = dto.usuarioCreatedId;
+
+  const entity = await this.superLineaRepository.create(superLinea);
+
+  return MessageFrontUtils.createSimple(
+    'SuperLínea',
+    entity.denominacion,
+    'creada',
+  );
+}
 
   async findAll(): Promise<SuperLinea[]> {
     return this.superLineaRepository.findAll();
@@ -61,7 +70,7 @@ export class SuperLineaService {
   async update(
   id: number,
   dto: UpdateSuperLineaDto,
-): Promise<SuperLinea> {
+){
     const current = await this.findById(id);
 
     if (dto.denominacion !== undefined) {
@@ -85,22 +94,67 @@ export class SuperLineaService {
 
     current.usuarioUpdatedId = dto.usuarioUpdatedId;
 
-    return this.superLineaRepository.update(id, current);
+const entity = await this.superLineaRepository.update(id, current);
+
+return MessageFrontUtils.createSimple(
+  'SuperLínea',
+  entity.denominacion,
+  'editada',
+);
   }
 
-  async delete(id: number, usuarioId: number): Promise<void> {
-    const superLinea = await this.findById(id);
+  async delete(id: number, usuarioId: number) {
+  const superLinea = await this.findById(id);
 
-    if (superLinea.sistema === 1) {
-      throw new BadRequestException(
-        'No se puede eliminar una superlínea del sistema.',
-      );
-    }
-
-    await this.deletionPolicy.validate(id);
-
-    await this.superLineaRepository.softDelete(id, usuarioId);
+  if (superLinea.sistema === 1) {
+    throw new BadRequestException(
+      'No se puede eliminar una superlínea del sistema.',
+    );
   }
+
+  await this.deletionPolicy.validate(id);
+
+  await this.superLineaRepository.softDelete(id, usuarioId);
+
+  return MessageFrontUtils.createSimple(
+    'SuperLínea',
+    superLinea.denominacion,
+    'eliminada',
+  );
+}
+
+  async findByDenominacionFiltered(
+  denominacion: string,
+  skip = 0,
+  take = 10,
+  incluirEliminados = false,
+): Promise<{ data: SuperLinea[]; total: number }> {
+  const result =
+    await this.superLineaRepository.findByDenominacionFiltered(
+      denominacion,
+      skip,
+      take,
+      incluirEliminados,
+    );
+
+  return {
+    data: result.data,
+    total: PaginacionUtils.totalItems(result.total),
+  };
+}
+
+async findByIdConAuditoria(id: number): Promise<AuditoriaDto> {
+  const auditoria =
+    await this.superLineaRepository.findByIdConAuditoria(id);
+
+  if (!auditoria) {
+    throw new NotFoundException(
+      `SuperLínea con ID ${id} no encontrada.`,
+    );
+  }
+
+  return auditoria;
+}
 
   private normalizeDenominacion(denominacion: string): string {
     return denominacion.trim();
