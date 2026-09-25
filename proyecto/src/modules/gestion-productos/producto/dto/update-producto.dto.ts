@@ -12,8 +12,8 @@ import {
 import { Transform } from 'class-transformer';
 
 export class UpdateProductoDto extends PartialType(CreateProductoDto) {
-  @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
+  @ValidateIf((_object, value) => value !== undefined)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La denominación debe ser una cadena de texto.' })
   @IsNotEmpty({ message: 'La denominación no puede estar vacía.' })
   @MaxLength(255, { message: 'La denominación no puede superar 255 caracteres.' })

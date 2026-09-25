@@ -205,6 +205,89 @@ describe('Producto DTOs - Validaciones CR-001', () => {
       expect(presError).toBeUndefined();
       expect(errors.length).toBe(0);
     });
+
+    it('CR-005: debe aceptar UpdateProductoDto cuando denominacion es undefined (conserva persistida)', async () => {
+      const dto = plainToInstance(UpdateProductoDto, {
+        usuarioUpdatedId: 1,
+      });
+      const errors = await validate(dto);
+      const denError = errors.find((e) => e.property === 'denominacion');
+      expect(denError).toBeUndefined();
+    });
+
+    it('CR-005: debe rechazar UpdateProductoDto con denominacion null', async () => {
+      const dto = plainToInstance(UpdateProductoDto, {
+        usuarioUpdatedId: 1,
+        denominacion: null,
+      });
+      const errors = await validate(dto);
+      const denError = errors.find((e) => e.property === 'denominacion');
+      expect(denError).toBeDefined();
+    });
+
+    it('CR-005: debe rechazar UpdateProductoDto con denominacion vacía o solo espacios', async () => {
+      const dtoVacio = plainToInstance(UpdateProductoDto, {
+        usuarioUpdatedId: 1,
+        denominacion: '',
+      });
+      const errorsVacio = await validate(dtoVacio);
+      expect(errorsVacio.find((e) => e.property === 'denominacion')).toBeDefined();
+
+      const dtoEspacios = plainToInstance(UpdateProductoDto, {
+        usuarioUpdatedId: 1,
+        denominacion: '   ',
+      });
+      const errorsEspacios = await validate(dtoEspacios);
+      expect(errorsEspacios.find((e) => e.property === 'denominacion')).toBeDefined();
+    });
+  });
+
+  describe('CreateProductoDto - CR-005 Fallback de denominación', () => {
+    const validBase = {
+      marcaId: 1,
+      lineaId: 2,
+      costo: 150,
+      porcentaje: 25,
+      stock: 100,
+      utilizaStockMinimo: false,
+      utilizaPack: false,
+      alicuotaIva: AlicuotaIva.ALICUOTA_21,
+      usuarioCreatedId: 1,
+      presentacion: '1L',
+    };
+
+    it('debe aceptar CreateProductoDto sin denominacion (undefined para fallback)', async () => {
+      const dto = plainToInstance(CreateProductoDto, validBase);
+      const errors = await validate(dto);
+      expect(errors.find((e) => e.property === 'denominacion')).toBeUndefined();
+    });
+
+    it('debe aceptar CreateProductoDto con denominacion null (para fallback)', async () => {
+      const dto = plainToInstance(CreateProductoDto, { ...validBase, denominacion: null });
+      const errors = await validate(dto);
+      expect(errors.find((e) => e.property === 'denominacion')).toBeUndefined();
+    });
+
+    it('debe aceptar CreateProductoDto con denominacion vacía (para fallback)', async () => {
+      const dto = plainToInstance(CreateProductoDto, { ...validBase, denominacion: '' });
+      const errors = await validate(dto);
+      expect(errors.find((e) => e.property === 'denominacion')).toBeUndefined();
+    });
+
+    it('debe aceptar CreateProductoDto con denominacion de solo espacios (para fallback)', async () => {
+      const dto = plainToInstance(CreateProductoDto, { ...validBase, denominacion: '   ' });
+      const errors = await validate(dto);
+      expect(errors.find((e) => e.property === 'denominacion')).toBeUndefined();
+    });
+
+    it('debe rechazar CreateProductoDto con denominacion que no sea string', async () => {
+      const dto = plainToInstance(CreateProductoDto, { ...validBase, denominacion: 12345 });
+      const errors = await validate(dto);
+      const denError = errors.find((e) => e.property === 'denominacion');
+      expect(denError).toBeDefined();
+      expect(denError?.constraints?.isString).toBe('La denominación debe ser una cadena de texto.');
+    });
   });
 });
+
 

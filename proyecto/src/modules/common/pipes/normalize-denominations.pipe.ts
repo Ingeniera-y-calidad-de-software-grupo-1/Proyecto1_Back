@@ -11,7 +11,8 @@ export class NormalizeDenominacionPipe implements PipeTransform {
     if (value?.denominacion) {
       const normalizedValue = value.denominacion.trim().toUpperCase();
       if (normalizedValue.length === 0) {
-        throw new BadRequestException('La denominación no puede estar vacía.');
+        value.denominacion = '';
+        return value;
       }
       value.denominacion = normalizedValue;
     }

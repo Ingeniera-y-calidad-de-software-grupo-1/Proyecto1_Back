@@ -62,9 +62,14 @@ export class ProductoService {
       `Creando un nuevo ${this.ENTITY_NAME} con denominación: ${dto.denominacion}`,
     );
 
-    // 1. Orquestar todas las validaciones de entrada y reglas de negocio
-    const { marca, linea, usuario } =
-      await this.validarYPrepararCreacion(dto);
+    // 1. Orquestar todas las validaciones de entrada, composición y reglas de negocio
+    const {
+      marca,
+      linea,
+      usuario,
+      denominacionFinal,
+      presentacionSaneada,
+    } = await this.validarYPrepararCreacion(dto);
 
     // 2. Preparar Producto y calcular explícitamente el precio desde el dominio
     const productoParaCalcular = new Producto();
@@ -72,11 +77,16 @@ export class ProductoService {
     productoParaCalcular.porcentaje = dto.porcentaje;
     const precioCalculado = productoParaCalcular.calcularPrecio();
 
-    // 3. El precio persistido proviene exclusivamente del cálculo del dominio (precio manual ignorado)
-    dto.precio = precioCalculado.valor;
+    // 3. Construir datos finales para persistencia sin mutar directamente el DTO recibido
+    const datosParaCrear: CreateProductoDto = {
+      ...dto,
+      denominacion: denominacionFinal,
+      presentacion: presentacionSaneada,
+      precio: precioCalculado.valor,
+    };
 
     const entity = await this.repository.create(
-      dto,
+      datosParaCrear,
       linea,
       marca,
       usuario,
@@ -92,12 +102,36 @@ export class ProductoService {
   async update(id: number, dto: UpdateProductoDto) {
     this.logger.log(`Actualizando ${this.ENTITY_NAME} con ID: ${id}`);
 
-    const { marca, linea, usuario } =
-      await this.validarYPrepararActualizacion(id, dto);
+    const {
+      marca,
+      linea,
+      usuario,
+      denominacionEfectiva,
+      presentacionSaneada,
+      precioRecalculado,
+    } = await this.validarYPrepararActualizacion(id, dto);
+
+    // Construir datos de actualización sin mutar el DTO original.
+    // Si denominacion es undefined, no se incluye para preservar la persistida.
+    const datosParaActualizar: UpdateProductoDto = {
+      ...dto,
+    };
+
+    if (presentacionSaneada !== undefined) {
+      datosParaActualizar.presentacion = presentacionSaneada;
+    }
+
+    if (dto.denominacion !== undefined) {
+      datosParaActualizar.denominacion = denominacionEfectiva;
+    }
+
+    if (precioRecalculado !== undefined) {
+      datosParaActualizar.precio = precioRecalculado;
+    }
 
     const entity = await this.repository.update(
       id,
-      dto,
+      datosParaActualizar,
       linea,
       marca,
       usuario,
@@ -303,17 +337,61 @@ export class ProductoService {
    * @private
    */
   private async validarYPrepararCreacion(dto: CreateProductoDto) {
-    // Validar invariantes de Presentacion mediante el Value Object del dominio
+    // 1. Validar invariantes de Presentacion mediante el Value Object del dominio (CR-002)
+    let presentacionSaneada: string;
     try {
       const presentacionVO = new Presentacion(dto.presentacion);
-      dto.presentacion = presentacionVO.valor;
+      presentacionSaneada = presentacionVO.valor;
     } catch (error: any) {
       throw new BadRequestException(error.message);
     }
 
-    // Validar datos intrínsecos (Domain - sin DB)
+    // 2. Validar que entidades relacionadas existen (Infrastructure - DB en paralelo)
+    const { marca, linea } =
+      await this.relatedEntitiesValidator.validarYObtenerEntidadesRelacionadas(
+        dto.marcaId,
+        dto.lineaId,
+      );
+
+    // 3. Validar reglas de negocio sobre entidades (Domain)
+    this.validationService.validarEntidadesRelacionadas(
+      marca,
+      linea,
+    );
+
+    // 4. Validar usuario existe (Infrastructure)
+    const usuario = await this.usuarioValidator.validarUsuarioExiste(
+      dto.usuarioCreatedId,
+    );
+
+    // 5. Preparar instancia de Producto y determinar la denominación final
+    const producto = new Producto();
+    producto.presentacion = presentacionSaneada;
+
+    let denominacionFinal: string;
+    const esDenominacionVacia =
+      dto.denominacion === undefined ||
+      dto.denominacion === null ||
+      (typeof dto.denominacion === 'string' && dto.denominacion.trim() === '');
+
+    try {
+      if (esDenominacionVacia) {
+        denominacionFinal = producto.componerDenominacion(
+          marca.denominacion,
+          linea.denominacion,
+        );
+      } else {
+        denominacionFinal = producto.actualizarDenominacion(
+          dto.denominacion as string,
+        );
+      }
+    } catch (error: any) {
+      throw new BadRequestException(error.message);
+    }
+
+    // 6. Validar datos intrínsecos sobre la denominación final (Domain)
     this.intrinsicValidationService.validarDatosBasicos({
-      denominacion: dto.denominacion,
+      denominacion: denominacionFinal,
       marcaId: dto.marcaId,
       lineaId: dto.lineaId,
       costo: dto.costo,
@@ -324,8 +402,8 @@ export class ProductoService {
       alicuotaIva: dto.alicuotaIva,
     });
 
-    // Validar unicidad (Infrastructure - DB)
-    await this.uniquenessValidator.validarDenominacionUnica(dto.denominacion);
+    // 7. Validar unicidad sobre la denominación FINAL (Infrastructure - DB)
+    await this.uniquenessValidator.validarDenominacionUnica(denominacionFinal);
 
     if (dto.codigoProveedor) {
       await this.uniquenessValidator.validarCodigoProveedorUnico(
@@ -333,25 +411,14 @@ export class ProductoService {
         0,
       );
     }
-    // 3 Validar entidades relacionadas existen (Infrastructure - DB)
-    const { marca, linea } =
-      await this.relatedEntitiesValidator.validarYObtenerEntidadesRelacionadas(
-        dto.marcaId,
-        dto.lineaId,
-      );
 
-    //  Validar reglas de negocio sobre entidades (Domain)
-    this.validationService.validarEntidadesRelacionadas(
+    return {
       marca,
       linea,
-    );
-
-    //  Validar usuario existe (Infrastructure)
-    const usuario = await this.usuarioValidator.validarUsuarioExiste(
-      dto.usuarioCreatedId,
-    );
-
-    return { marca, linea, usuario };
+      usuario,
+      denominacionFinal,
+      presentacionSaneada,
+    };
   }
 
   /**
@@ -363,10 +430,11 @@ export class ProductoService {
     dto: UpdateProductoDto,
   ) {
     // Si se envía presentación, validar invariantes mediante el Value Object del dominio
+    let presentacionSaneada: string | undefined;
     if (dto.presentacion !== undefined) {
       try {
         const presentacionVO = new Presentacion(dto.presentacion);
-        dto.presentacion = presentacionVO.valor;
+        presentacionSaneada = presentacionVO.valor;
       } catch (error: any) {
         throw new BadRequestException(error.message);
       }
@@ -386,6 +454,17 @@ export class ProductoService {
       throw new InternalServerErrorException('Producto en estado inválido');
     }
 
+    // En UPDATE: si denominacion viene definida, validarla con el modelo.
+    // Si viene undefined, conservar productoActual.denominacion sin autocomponer.
+    let denominacionEfectiva = productoActual.denominacion;
+    if (dto.denominacion !== undefined) {
+      try {
+        denominacionEfectiva = productoActual.actualizarDenominacion(dto.denominacion);
+      } catch (error: any) {
+        throw new BadRequestException(error.message);
+      }
+    }
+
     const costoEfectivo = dto.costo !== undefined ? dto.costo : productoActual.costo;
     const porcentajeEfectivo = dto.porcentaje !== undefined ? dto.porcentaje : productoActual.porcentaje;
     const stockEfectivo = dto.stock !== undefined ? dto.stock : productoActual.stock;
@@ -394,9 +473,9 @@ export class ProductoService {
     const stockMinimoEfectivo =
       dto.stockMinimo !== undefined ? dto.stockMinimo : productoActual.stockMinimo;
 
-    // Validar datos intrínsecos combinados
+    // Validar datos intrínsecos combinados con la denominación efectiva
     this.intrinsicValidationService.validarDatosBasicos({
-      denominacion: dto.denominacion ?? productoActual.denominacion,
+      denominacion: denominacionEfectiva,
       marcaId: dto.marcaId ?? productoActual.marcaId,
       lineaId: dto.lineaId ?? productoActual.lineaId,
       costo: costoEfectivo,
@@ -408,18 +487,19 @@ export class ProductoService {
     });
 
     // Recalcular explícitamente el precio con el dominio si hay costo definido
+    let precioRecalculado: number | undefined;
     if (costoEfectivo !== undefined && costoEfectivo !== null) {
       const productoParaCalcular = new Producto();
       productoParaCalcular.costo = costoEfectivo;
       productoParaCalcular.porcentaje = porcentajeEfectivo;
-      const precioRecalculado = productoParaCalcular.calcularPrecio();
-      dto.precio = precioRecalculado.valor;
+      const precioVO = productoParaCalcular.calcularPrecio();
+      precioRecalculado = precioVO.valor;
     }
 
-    // Validar unicidad (excluyendo el ID actual)
-    if (dto.denominacion) {
+    // Validar unicidad (excluyendo el ID actual) solo si se envía y modifica la denominación
+    if (dto.denominacion !== undefined && denominacionEfectiva !== productoActual.denominacion) {
       await this.uniquenessValidator.validarDenominacionUnica(
-        dto.denominacion,
+        denominacionEfectiva,
         id,
       );
     }
@@ -442,6 +522,13 @@ export class ProductoService {
       dto.usuarioUpdatedId,
     );
 
-    return { marca, linea, usuario };
+    return {
+      marca,
+      linea,
+      usuario,
+      denominacionEfectiva,
+      presentacionSaneada,
+      precioRecalculado,
+    };
   }
 }

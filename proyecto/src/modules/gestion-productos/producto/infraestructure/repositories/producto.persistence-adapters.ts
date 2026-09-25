@@ -182,7 +182,11 @@ export class ProductoPersistenceAdapter implements IProductoRepository {
         ...dataSinItems
       } = data;
 
-      Object.assign(entity, dataSinItems, {
+      const dataLimpia = Object.fromEntries(
+        Object.entries(dataSinItems).filter(([_, valor]) => valor !== undefined),
+      );
+
+      Object.assign(entity, dataLimpia, {
         linea,
         marca,
       });
