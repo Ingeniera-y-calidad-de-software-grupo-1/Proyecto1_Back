@@ -200,4 +200,93 @@ export class Producto {
     this.precio = precioVO.valor;
     return precioVO;
   }
+    aplicarAjustePrecioPorPorcentaje(porcentajeAjuste: number): Precio {
+    if (
+      typeof porcentajeAjuste !== 'number' ||
+      isNaN(porcentajeAjuste) ||
+      !isFinite(porcentajeAjuste)
+    ) {
+      throw new Error('El porcentaje de ajuste debe ser un número válido');
+    }
+
+    const precioActual = this.obtenerPrecioActualParaAjuste();
+
+    const nuevoPrecio =
+      precioActual * (1 + porcentajeAjuste / 100);
+
+    return this.aplicarNuevoPrecio(nuevoPrecio);
+  }
+
+  aplicarAjustePrecioPorMonto(monto: number): Precio {
+    if (
+      typeof monto !== 'number' ||
+      isNaN(monto) ||
+      !isFinite(monto)
+    ) {
+      throw new Error('El monto de ajuste debe ser un número válido');
+    }
+
+    const precioActual = this.obtenerPrecioActualParaAjuste();
+
+    const nuevoPrecio = precioActual + monto;
+
+    return this.aplicarNuevoPrecio(nuevoPrecio);
+  }
+
+  private obtenerPrecioActualParaAjuste(): number {
+    if (
+      this.precio === undefined ||
+      this.precio === null ||
+      typeof this.precio !== 'number' ||
+      !isFinite(this.precio)
+    ) {
+      throw new Error(
+        'El producto no posee un precio válido para realizar el ajuste',
+      );
+    }
+
+    return this.precio;
+  }
+
+  private aplicarNuevoPrecio(nuevoPrecio: number): Precio {
+    if (
+      this.costo === undefined ||
+      this.costo === null ||
+      typeof this.costo !== 'number' ||
+      !isFinite(this.costo)
+    ) {
+      throw new Error(
+        'El producto no posee un costo válido para recalcular el margen',
+      );
+    }
+
+    if (this.costo <= 0) {
+      throw new Error(
+        'No se puede actualizar masivamente el precio de un producto con costo menor o igual a cero',
+      );
+    }
+
+    if (!isFinite(nuevoPrecio) || nuevoPrecio <= 0) {
+      throw new Error(
+        'El precio resultante de la actualización debe ser mayor a cero',
+      );
+    }
+
+    const nuevoMargen =
+      ((nuevoPrecio / this.costo) - 1) * 100;
+
+    if (nuevoMargen < 0) {
+      throw new Error(
+        'El ajuste solicitado produciría un precio inferior al costo del producto',
+      );
+    }
+
+    const margen = new Margen(nuevoMargen);
+    const precio = new Precio(nuevoPrecio);
+
+    this.porcentaje = margen.valor;
+    this.precio = precio.valor;
+
+    return precio;
+  }
 }

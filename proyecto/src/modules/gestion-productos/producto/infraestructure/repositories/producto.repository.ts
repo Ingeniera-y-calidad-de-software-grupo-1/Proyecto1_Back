@@ -10,6 +10,7 @@ import { DatabaseConnectionException } from 'src/modules/common/exceptions/datab
 import { IUnitOfWork } from 'src/modules/common/unit-of-work/iunit-of-work.';
 import { Usuario } from 'src/modules/gestion-usuario/usuario/domain/entities/usuario.entity';
 import { UpdatePrecioDto } from '../../dto/update-precio.dto';
+import { ActualizacionMasivaPrecioDto } from '../../dto/actualizacion-masiva-precio.dto';
 
 @Injectable()
 export class ProductoRepository implements IProductoRepository {
@@ -116,6 +117,15 @@ export class ProductoRepository implements IProductoRepository {
     return this.persistenceService.actualizarPrecio(id, dto, usuario);
   }
 
+    async actualizarPreciosMasivamente(
+    dto: ActualizacionMasivaPrecioDto,
+    usuario: Usuario,
+  ): Promise<number> {
+    return this.persistenceService.actualizarPreciosMasivamente(
+      dto,
+      usuario,
+    );
+  }
 
   async findByDenominacion(denominacion: string): Promise<Producto | null> {
     const entity =

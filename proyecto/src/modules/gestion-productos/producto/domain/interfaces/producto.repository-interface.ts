@@ -6,7 +6,7 @@ import { UpdateProductoDto } from '../../dto/update-producto.dto';
 import { IUnitOfWork } from 'src/modules/common/unit-of-work/iunit-of-work.';
 import { Usuario } from 'src/modules/gestion-usuario/usuario/domain/entities/usuario.entity';
 import { UpdatePrecioDto } from '../../dto/update-precio.dto';
-
+import { ActualizacionMasivaPrecioDto } from '../../dto/actualizacion-masiva-precio.dto';
 import { BuscarProductoCriteria } from './buscar-producto.criteria';
 
 export { BuscarProductoCriteria };
@@ -53,6 +53,10 @@ export interface IProductoRepository {
     dto: UpdatePrecioDto,
     usuario: Usuario,
   ): Promise<void>;
+    actualizarPreciosMasivamente(
+    dto: ActualizacionMasivaPrecioDto,
+    usuario: Usuario,
+  ): Promise<number>;
   remove(data: Producto, usuario: Usuario): Promise<Producto>;
 
   isCodigoProveedorDuplicado(
