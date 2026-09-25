@@ -10,18 +10,30 @@ import {
   IsInt,
   IsEnum,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { AlicuotaIva } from 'src/modules/organizacion/enums/alicuota-iva.enum';
 
 export class CreateProductoDto {
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
+  @ValidateIf(
+    (_object, value) =>
+      value !== undefined &&
+      value !== null &&
+      (typeof value !== 'string' || value.trim() !== ''),
+  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'La denominación debe ser una cadena de texto.' })
-  @IsNotEmpty({ message: 'La denominación no puede estar vacía.' })
   @MaxLength(255, { message: 'La denominación no puede superar 255 caracteres.' })
   @Matches(/^[\w áéíóúÁÉÍÓÚñÑ.\-/%]+$/, {
     message: 'La denominación contiene caracteres inválidos.',
   })
-  denominacion: string;
+  denominacion?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'La presentación debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'La presentación es obligatoria.' })
+  @MaxLength(50, { message: 'La presentación no puede superar los 50 caracteres.' })
+  presentacion: string;
 
   @IsOptional()
   @IsString()

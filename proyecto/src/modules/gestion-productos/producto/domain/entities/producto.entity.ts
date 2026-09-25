@@ -18,7 +18,7 @@ import { MonetarioColumn } from 'src/modules/common/decorators/monetario-column.
 import { CantidadColumn } from 'src/modules/common/decorators/cantidad-column.decorator';
 import { PorcentajeColumn } from 'src/modules/common/decorators/porcentaje-column.decorator';
 import { Proveedor } from 'src/modules/organizacion/proveedor/domain/entities/proveedor.entity';
-import { Margen, Precio } from '../value-objects';
+import { Margen, Precio, Presentacion } from '../value-objects';
 
 @Entity('producto')
 export class Producto {
@@ -29,6 +29,14 @@ export class Producto {
   @ApiProperty()
   @Column({ type: 'text' })
   denominacion: string;
+
+  @ApiProperty({ description: 'Presentación del producto (ej: 1L, 750 cc)' })
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: false,
+  })
+  presentacion: string;
 
   @Index()
   @Column({ type: 'varchar', length: 255, nullable: true })
@@ -289,4 +297,64 @@ export class Producto {
 
     return precio;
   }
+  /**
+   * Compone automáticamente la denominación a partir de:
+   * Marca + " " + Línea + " " + Presentación
+   * Protege las invariantes del dominio:
+   * - Marca y Línea son obligatorias.
+   * - La Presentación es obligatoria (CR-002): se valida mediante el VO Presentacion y nunca se omite.
+   * - Sanea espacios en los extremos y bordes de cada componente.
+   * - La denominación final no puede estar vacía ni superar los 255 caracteres.
+   */
+  componerDenominacion(marca: string, linea: string): string {
+    const marcaLimpia = marca?.trim();
+    const lineaLimpia = linea?.trim();
+
+    if (!marcaLimpia || !lineaLimpia) {
+      throw new Error('Marca y Línea son obligatorias para componer la denominación.');
+    }
+
+    const presentacionVO = new Presentacion(this.presentacion);
+    const texto = `${marcaLimpia} ${lineaLimpia} ${presentacionVO.valor}`.trim();
+
+    if (!texto || texto.length > 255) {
+      throw new Error('Denominación inválida o excede 255 caracteres.');
+    }
+
+    this.denominacion = texto;
+    return texto;
+  }
+
+  /**
+   * Actualiza y valida la denominación manual del producto,
+   * protegiendo las invariantes del dominio:
+   * - No puede ser nula ni indefinida.
+   * - Debe ser una cadena de texto.
+   * - Sanea espacios en los extremos mediante trim().
+   * - No puede estar vacía.
+   * - Longitud máxima de 255 caracteres.
+   */
+  actualizarDenominacion(denominacion: string): string {
+    if (denominacion === null || denominacion === undefined) {
+      throw new Error('La denominación no puede ser nula ni indefinida');
+    }
+
+    if (typeof denominacion !== 'string') {
+      throw new Error('La denominación debe ser una cadena de texto');
+    }
+
+    const saneada = denominacion.trim();
+
+    if (saneada.length === 0) {
+      throw new Error('La denominación no puede estar vacía');
+    }
+
+    if (saneada.length > 255) {
+      throw new Error('Denominación inválida o excede 255 caracteres.');
+    }
+
+    this.denominacion = saneada;
+    return saneada;
+  }
 }
+
