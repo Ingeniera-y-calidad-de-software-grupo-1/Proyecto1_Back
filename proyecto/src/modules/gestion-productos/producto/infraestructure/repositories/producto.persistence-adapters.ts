@@ -14,6 +14,7 @@ import { CreateProductoDto } from '../../dto/create-producto.dto';
 import { UpdatePrecioDto } from '../../dto/update-precio.dto';
 import { UpdateProductoDto } from '../../dto/update-producto.dto';
 import { ProductoMapper } from '../../mappers/producto.mapper';
+import { ActualizacionMasivaPrecioDto } from '../../dto/actualizacion-masiva-precio.dto';
 
 export function escapeLikeWildcards(value: string): string {
   return value
@@ -425,6 +426,40 @@ export class ProductoPersistenceAdapter implements IProductoRepository {
 
     await repo.save(entity);
 
+  }
+
+    @Transactional()
+  async actualizarPreciosMasivamente(
+    dto: ActualizacionMasivaPrecioDto,
+    usuario: Usuario,
+  ): Promise<number> {
+    const repo = this.uow.getRepository(Producto);
+
+    const query = repo
+      .createQueryBuilder('producto')
+      .where('producto.deletedAt IS NULL');
+
+    if (dto.alcance === 'linea') {
+      query.andWhere('producto.lineaId = :lineaId', {
+        lineaId: dto.lineaId,
+      });
+    }
+
+    const productos = await query.getMany();
+
+    for (const producto of productos) {
+      if (dto.tipo === 'porcentaje') {
+        producto.aplicarAjustePrecioPorPorcentaje(dto.valor);
+      } else {
+        producto.aplicarAjustePrecioPorMonto(dto.valor);
+      }
+
+      producto.usuarioUpdated = usuario;
+    }
+
+    await repo.save(productos);
+
+    return productos.length;
   }
 
   async findByDenominacion(denominacion: string): Promise<Producto | null> {

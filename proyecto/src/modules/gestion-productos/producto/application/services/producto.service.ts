@@ -29,6 +29,7 @@ import { ProductoRelatedEntitiesValidator } from '../../infraestructure/validato
 import { ProductoUniquenessValidator } from '../../infraestructure/validators/producto-uniqueness.validator.ts';
 import { UsuarioValidator } from 'src/modules/common/utils/validation/usuario-validator';
 import { ProductoDeletePolicy } from '../policies/producto-delete.policy';
+import { ActualizacionMasivaPrecioDto } from '../../dto/actualizacion-masiva-precio.dto';
 @Injectable()
 export class ProductoService {
   private readonly logger = new Logger(ProductoService.name);
@@ -142,6 +143,46 @@ export class ProductoService {
       entity.denominacion,
       'editada',
     );
+  }
+
+    async actualizarPreciosMasivamente(
+    dto: ActualizacionMasivaPrecioDto,
+  ): Promise<{ cantidadActualizada: number }> {
+    this.logger.log(
+      `Actualizando precios masivamente. Tipo: ${dto.tipo}, alcance: ${dto.alcance}`,
+    );
+
+    const usuario = await this.usuarioValidator.validarUsuarioExiste(
+      dto.usuarioId,
+    );
+
+    if (dto.alcance === 'linea') {
+      if (!dto.lineaId) {
+        throw new BadRequestException(
+          'Debe indicar una línea para realizar la actualización por línea',
+        );
+      }
+
+      await this.lineaService.findEntityById(dto.lineaId);
+    }
+
+    try {
+  const cantidadActualizada =
+    await this.repository.actualizarPreciosMasivamente(
+      dto,
+      usuario,
+    );
+
+  return {
+    cantidadActualizada,
+  };
+} catch (error) {
+  if (error instanceof Error) {
+    throw new BadRequestException(error.message);
+  }
+
+  throw error;
+}
   }
 
   async findByRapido(

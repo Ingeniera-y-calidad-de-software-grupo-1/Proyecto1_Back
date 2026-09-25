@@ -31,7 +31,7 @@ import { NormalizeDenominacionSearchPipe } from 'src/modules/common/pipes/normal
 import { DenominacionBusquedaDto } from 'src/modules/common/dto/denominacion-busqueda.dto';
 import { SearchProductoRapidoDto } from '../../dto/search-producto-rapido.dto';
 import { ProductoService } from '../services/producto.service';
-
+import { ActualizacionMasivaPrecioDto } from '../../dto/actualizacion-masiva-precio.dto';
 
 @ApiTags('Gestion Productos')
 @Controller('producto')
@@ -130,6 +130,18 @@ export class ProductoController {
   findOne(@Param('id', ParseIntPipe) id: number): Promise<ProductoDto> {
     this.logger.log(`Buscando  ${this.ENTITY_NAME} con ID: ${id}`);
     return this.service.findDtoById(+id);
+  }
+
+  @Put('precios/actualizacion-masiva')
+  @Roles('Root', 'Administrador', 'Empleado')
+  async actualizarPreciosMasivamente(
+    @Body() dto: ActualizacionMasivaPrecioDto,
+  ): Promise<{ cantidadActualizada: number }> {
+    this.logger.log(
+      `Actualización masiva de precios. Tipo: ${dto.tipo}, alcance: ${dto.alcance}`,
+    );
+
+    return this.service.actualizarPreciosMasivamente(dto);
   }
 
   @Put(':id')
