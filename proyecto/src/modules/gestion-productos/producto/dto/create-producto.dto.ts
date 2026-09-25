@@ -23,6 +23,12 @@ export class CreateProductoDto {
   })
   denominacion: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'La presentación debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'La presentación es obligatoria.' })
+  @MaxLength(50, { message: 'La presentación no puede superar los 50 caracteres.' })
+  presentacion: string;
+
   @IsOptional()
   @IsString()
   observacion?: string;

@@ -78,6 +78,7 @@ describe('ProductoService - CR-001 (Etapa 2)', () => {
       utilizaStockMinimo: false,
       utilizaPack: false,
       usuarioCreatedId: 1,
+      presentacion: '1L',
     };
 
     it('debe rechazar costo negativo', async () => {

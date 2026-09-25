@@ -20,6 +20,7 @@ import { CreateProductoDto } from '../../dto/create-producto.dto';
 import { GetProductoDto } from '../../dto/get-producto.dto';
 import { UpdateProductoDto } from '../../dto/update-producto.dto';
 import { ProductoMapper } from '../../mappers/producto.mapper';
+import { Presentacion } from '../../domain/value-objects';
 import { LineaService } from 'src/modules/gestion-productos/linea/application/services/linea.service';
 import { MarcaService } from 'src/modules/gestion-productos/marca/application/services/marca.service';
 import { ProductoIntrinsicValidationService } from '../../domain/services/producto-intrinsic-validation.service.ts';
@@ -302,6 +303,14 @@ export class ProductoService {
    * @private
    */
   private async validarYPrepararCreacion(dto: CreateProductoDto) {
+    // Validar invariantes de Presentacion mediante el Value Object del dominio
+    try {
+      const presentacionVO = new Presentacion(dto.presentacion);
+      dto.presentacion = presentacionVO.valor;
+    } catch (error: any) {
+      throw new BadRequestException(error.message);
+    }
+
     // Validar datos intrínsecos (Domain - sin DB)
     this.intrinsicValidationService.validarDatosBasicos({
       denominacion: dto.denominacion,
@@ -353,6 +362,16 @@ export class ProductoService {
     id: number,
     dto: UpdateProductoDto,
   ) {
+    // Si se envía presentación, validar invariantes mediante el Value Object del dominio
+    if (dto.presentacion !== undefined) {
+      try {
+        const presentacionVO = new Presentacion(dto.presentacion);
+        dto.presentacion = presentacionVO.valor;
+      } catch (error: any) {
+        throw new BadRequestException(error.message);
+      }
+    }
+
     // Obtener producto actual
     const productoActual = await this.repository.findOne(id);
     if (!productoActual)

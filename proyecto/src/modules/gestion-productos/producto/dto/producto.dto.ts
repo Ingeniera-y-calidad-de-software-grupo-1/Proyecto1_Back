@@ -28,6 +28,13 @@ export class ProductoDto {
   @IsString()
   denominacion: string;
 
+  @ApiProperty({
+    example: '1L',
+    description: 'Presentación del producto',
+  })
+  @IsString()
+  presentacion: string;
+
   @ApiProperty()
   @IsString()
   observacion?: string;

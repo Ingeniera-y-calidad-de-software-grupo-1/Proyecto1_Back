@@ -26,6 +26,14 @@ export class GetProductoDto {
   denominacion: string;
 
   @ApiProperty({
+    example: '1L',
+    description: 'Presentación del producto',
+  })
+  @IsString()
+  presentacion: string;
+
+
+  @ApiProperty({
     example: '1158 Caja de tornillos',
     description:
       'Codigo proveedor Denominación o nombre del producto. Esta formado por la linea y la marca',

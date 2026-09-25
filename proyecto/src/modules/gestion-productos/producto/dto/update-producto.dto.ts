@@ -7,6 +7,7 @@ import {
   MaxLength,
   Matches,
   IsOptional,
+  ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -20,6 +21,13 @@ export class UpdateProductoDto extends PartialType(CreateProductoDto) {
     message: 'La denominación contiene caracteres inválidos.',
   })
   denominacion?: string;
+
+  @ValidateIf((_object, value) => value !== undefined)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'La presentación debe ser una cadena de texto.' })
+  @IsNotEmpty({ message: 'La presentación no puede estar vacía.' })
+  @MaxLength(50, { message: 'La presentación no puede superar los 50 caracteres.' })
+  presentacion?: string;
 
   @IsNotEmpty({ message: 'El usuarioUpdatedId es obligatorio.' })
   @IsInt({ message: 'El usuarioUpdatedId debe ser un número entero.' })
