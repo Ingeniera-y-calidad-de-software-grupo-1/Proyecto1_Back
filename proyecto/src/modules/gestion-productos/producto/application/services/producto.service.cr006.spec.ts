@@ -32,6 +32,7 @@ describe('ProductoService - Actualización masiva de precios (CR-006)', () => {
       {} as any, // uniquenessValidator
       mockUsuarioValidator,
       {} as any, // productoDeletePolicy
+      {} as any, // historialPrecioRepository
     );
   });
 

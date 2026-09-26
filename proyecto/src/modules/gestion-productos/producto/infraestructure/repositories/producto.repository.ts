@@ -12,6 +12,8 @@ import { Usuario } from 'src/modules/gestion-usuario/usuario/domain/entities/usu
 import { UpdatePrecioDto } from '../../dto/update-precio.dto';
 import { ActualizacionMasivaPrecioDto } from '../../dto/actualizacion-masiva-precio.dto';
 
+import { HistorialPrecio } from '../../domain/entities/historial-precio.entity';
+
 @Injectable()
 export class ProductoRepository implements IProductoRepository {
   private readonly logger = new Logger(ProductoRepository.name);
@@ -53,16 +55,16 @@ export class ProductoRepository implements IProductoRepository {
     data: UpdateProductoDto,
     linea: Linea,
     marca: Marca,
-
     usuario: Usuario,
+    historialPrecio?: HistorialPrecio,
   ): Promise<Producto> {
     return this.persistenceService.update(
       id,
       data,
       linea,
       marca,
-
       usuario,
+      historialPrecio,
     );
   }
 

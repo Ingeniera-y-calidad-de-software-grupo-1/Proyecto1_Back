@@ -12,8 +12,8 @@ export class Precio {
       throw new Error('El precio debe ser un número válido');
     }
 
-    if (valor < 0) {
-      throw new Error('El precio no puede ser negativo');
+    if (valor <= 0) {
+      throw new Error('El precio debe ser mayor a cero');
     }
 
     this._valor = valor;

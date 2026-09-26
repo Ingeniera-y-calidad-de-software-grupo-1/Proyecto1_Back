@@ -28,6 +28,7 @@ describe('ProductoService - findBy (CR-004)', () => {
       {} as any, // uniquenessValidator
       {} as any, // usuarioValidator
       {} as any, // productoDeletePolicy
+      {} as any, // historialPrecioRepository
     );
   });
 

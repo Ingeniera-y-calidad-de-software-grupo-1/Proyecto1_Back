@@ -63,6 +63,7 @@ describe('ProductoService - CR-001 (Etapa 2)', () => {
       mockUniquenessValidator,
       mockUsuarioValidator,
       mockProductoDeletePolicy,
+      {} as any,
     );
   });
 
@@ -179,6 +180,7 @@ describe('ProductoService - CR-001 (Etapa 2)', () => {
       const updateDto: UpdateProductoDto = {
         usuarioUpdatedId: 1,
         costo: 1200,
+        motivoCambioPrecio: 'Aumento de costo',
       };
 
       await service.update(1, updateDto);
@@ -193,6 +195,7 @@ describe('ProductoService - CR-001 (Etapa 2)', () => {
         expect.anything(),
         expect.anything(),
         expect.anything(),
+        expect.anything(),
       );
     });
 
@@ -200,6 +203,7 @@ describe('ProductoService - CR-001 (Etapa 2)', () => {
       const updateDto: UpdateProductoDto = {
         usuarioUpdatedId: 1,
         porcentaje: 20,
+        motivoCambioPrecio: 'Aumento de porcentaje',
       };
 
       await service.update(1, updateDto);
@@ -214,6 +218,7 @@ describe('ProductoService - CR-001 (Etapa 2)', () => {
         expect.anything(),
         expect.anything(),
         expect.anything(),
+        expect.anything(),
       );
     });
 
@@ -222,6 +227,7 @@ describe('ProductoService - CR-001 (Etapa 2)', () => {
         usuarioUpdatedId: 1,
         costo: 2000,
         porcentaje: 10,
+        motivoCambioPrecio: 'Ajuste conjunto',
       };
 
       await service.update(1, updateDto);
@@ -234,6 +240,7 @@ describe('ProductoService - CR-001 (Etapa 2)', () => {
           porcentaje: 10,
           precio: 2200,
         }),
+        expect.anything(),
         expect.anything(),
         expect.anything(),
         expect.anything(),

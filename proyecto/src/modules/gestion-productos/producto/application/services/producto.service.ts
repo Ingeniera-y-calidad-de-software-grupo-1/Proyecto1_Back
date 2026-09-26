@@ -6,6 +6,7 @@ import {
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { IUnitOfWork } from 'src/modules/common/unit-of-work/iunit-of-work.';
 import { ProveedorService } from 'src/modules/organizacion/proveedor/application/services/proveedor.service';
@@ -14,7 +15,10 @@ import { UsuarioService } from 'src/modules/gestion-usuario/usuario/application/
 import { ensureNotSistemaEntity } from 'src/modules/common/utils/atrituto-sistema';
 import { AuditoriaMapper } from 'src/modules/gestion-sistema/auditoria/mappers/auditoria.mapper';
 import { MessageFrontUtils } from 'src/modules/common/utils/message/message-front.util';
+import { redondear5 } from 'src/modules/common/utils/number/redondeo';
 import { Producto } from '../../domain/entities/producto.entity';
+import { HistorialPrecio } from '../../domain/entities/historial-precio.entity';
+import { IHistorialPrecioRepository } from '../../domain/interfaces/historial-precio.repository-interface';
 import { IProductoRepository, BuscarProductoCriteria } from '../../domain/interfaces/producto.repository-interface';
 import { CreateProductoDto } from '../../dto/create-producto.dto';
 import { GetProductoDto } from '../../dto/get-producto.dto';
@@ -54,6 +58,8 @@ export class ProductoService {
 
     private readonly productoDeletePolicy: ProductoDeletePolicy,
 
+    @Inject('IHistorialPrecioRepository')
+    private readonly historialPrecioRepository: IHistorialPrecioRepository,
   ) { }
 
   private readonly ENTITY_NAME = 'Producto';
@@ -110,6 +116,7 @@ export class ProductoService {
       denominacionEfectiva,
       presentacionSaneada,
       precioRecalculado,
+      historialPrecio,
     } = await this.validarYPrepararActualizacion(id, dto);
 
     // Construir datos de actualización sin mutar el DTO original.
@@ -130,13 +137,18 @@ export class ProductoService {
       datosParaActualizar.precio = precioRecalculado;
     }
 
-    const entity = await this.repository.update(
+    const updateArgs: any[] = [
       id,
       datosParaActualizar,
       linea,
       marca,
       usuario,
-    );
+    ];
+    if (historialPrecio) {
+      updateArgs.push(historialPrecio);
+    }
+
+    const entity = await (this.repository.update as any)(...updateArgs);
 
     return MessageFrontUtils.createSimple(
       `${this.ENTITY_NAME}`,
@@ -530,11 +542,52 @@ export class ProductoService {
     // Recalcular explícitamente el precio con el dominio si hay costo definido
     let precioRecalculado: number | undefined;
     if (costoEfectivo !== undefined && costoEfectivo !== null) {
-      const productoParaCalcular = new Producto();
-      productoParaCalcular.costo = costoEfectivo;
-      productoParaCalcular.porcentaje = porcentajeEfectivo;
-      const precioVO = productoParaCalcular.calcularPrecio();
-      precioRecalculado = precioVO.valor;
+      try {
+        const productoParaCalcular = new Producto();
+        productoParaCalcular.costo = costoEfectivo;
+        productoParaCalcular.porcentaje = porcentajeEfectivo;
+        const precioVO = productoParaCalcular.calcularPrecio();
+        precioRecalculado = precioVO.valor;
+      } catch (error: any) {
+        throw new BadRequestException(error.message);
+      }
+    }
+
+    // CR-007: Determinar cambio efectivo de precio usando la precisión de 5 decimales del proyecto (redondear5)
+    let historialPrecio: HistorialPrecio | undefined;
+    const precioObjetivo =
+      precioRecalculado !== undefined
+        ? precioRecalculado
+        : (dto.precio !== undefined ? Number(dto.precio) : undefined);
+
+    if (
+      precioObjetivo !== undefined &&
+      productoActual.precio !== undefined &&
+      productoActual.precio !== null
+    ) {
+      const precioAnteriorNum = Number(productoActual.precio);
+      const nuevoPrecioNum = Number(precioObjetivo);
+      const huboCambioEfectivo =
+        redondear5(precioAnteriorNum) !== redondear5(nuevoPrecioNum);
+
+      if (huboCambioEfectivo) {
+        const motivoTrim = dto.motivoCambioPrecio?.trim();
+        if (!motivoTrim || motivoTrim.length === 0) {
+          throw new BadRequestException(
+            'Debe ingresar un motivo para el cambio de precio',
+          );
+        }
+        try {
+          historialPrecio = HistorialPrecio.crear({
+            productoId: id,
+            precioAnterior: redondear5(precioAnteriorNum),
+            precioNuevo: redondear5(nuevoPrecioNum),
+            motivo: motivoTrim,
+          });
+        } catch (error: any) {
+          throw new BadRequestException(error.message);
+        }
+      }
     }
 
     // Validar unicidad (excluyendo el ID actual) solo si se envía y modifica la denominación
@@ -570,6 +623,17 @@ export class ProductoService {
       denominacionEfectiva,
       presentacionSaneada,
       precioRecalculado,
+      historialPrecio,
     };
+  }
+
+  async obtenerHistorialPrecios(productoId: number): Promise<HistorialPrecio[]> {
+    const producto = await this.repository.findOne(productoId);
+    if (!producto) {
+      throw new NotFoundException(
+        `${this.ENTITY_NAME} con ID ${productoId} no encontrado.`,
+      );
+    }
+    return this.historialPrecioRepository.findByProductoId(productoId);
   }
 }

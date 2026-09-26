@@ -62,6 +62,7 @@ describe('ProductoService - CR-005 (Denominación Automática de Producto)', () 
       mockUniquenessValidator,
       mockUsuarioValidator,
       mockProductoDeletePolicy,
+      {} as any,
     );
   });
 

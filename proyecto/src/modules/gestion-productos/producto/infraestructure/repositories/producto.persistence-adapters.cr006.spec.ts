@@ -55,6 +55,7 @@ describe('ProductoPersistenceAdapter - CR006 Actualización masiva de precios', 
       mockRepository,
       mockDataSource,
       {} as any,
+      {} as any,
     );
   });
 

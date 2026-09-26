@@ -3,7 +3,9 @@ import { ProductoController } from './application/controllers/producto.controlle
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NormalizeDenominacionPipe } from 'src/modules/common/pipes/normalize-denominations.pipe';
 import { Producto } from './domain/entities/producto.entity';
+import { HistorialPrecio } from './domain/entities/historial-precio.entity';
 import { ProductoRepository } from './infraestructure/repositories/producto.repository';
+import { HistorialPrecioRepository } from './infraestructure/repositories/historial-precio.repository';
 import { LineaModule } from '../linea/linea.module';
 import { MarcaModule } from '../marca/marca.module';
 import { TypeOrmUnitOfWork } from 'src/modules/common/unit-of-work/type-orm-unit-of-works1';
@@ -23,7 +25,7 @@ import { ProductoDeletePolicy } from './application/policies/producto-delete.pol
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Producto]),
+    TypeOrmModule.forFeature([Producto, HistorialPrecio]),
     CommonModule,
     forwardRef(() => LineaModule),
     forwardRef(() => MarcaModule),
@@ -46,6 +48,11 @@ import { ProductoDeletePolicy } from './application/policies/producto-delete.pol
       useClass: ProductoRepository,
     },
     {
+      provide: 'IHistorialPrecioRepository',
+      useClass: HistorialPrecioRepository,
+    },
+    HistorialPrecioRepository,
+    {
       provide: 'UnitOfWork',
       useFactory: (dataSource: DataSource): IUnitOfWork => {
         return new TypeOrmUnitOfWork(dataSource);
@@ -61,6 +68,8 @@ import { ProductoDeletePolicy } from './application/policies/producto-delete.pol
     ProductoService,
     ProductoPersistenceAdapter,
     'IProductoRepository',
+    'IHistorialPrecioRepository',
+    HistorialPrecioRepository,
   ],
 })
 export class ProductoModule {}

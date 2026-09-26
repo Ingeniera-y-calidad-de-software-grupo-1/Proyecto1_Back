@@ -32,6 +32,7 @@ import { DenominacionBusquedaDto } from 'src/modules/common/dto/denominacion-bus
 import { SearchProductoRapidoDto } from '../../dto/search-producto-rapido.dto';
 import { ProductoService } from '../services/producto.service';
 import { ActualizacionMasivaPrecioDto } from '../../dto/actualizacion-masiva-precio.dto';
+import { HistorialPrecio } from '../../domain/entities/historial-precio.entity';
 
 @ApiTags('Gestion Productos')
 @Controller('producto')
@@ -180,5 +181,18 @@ export class ProductoController {
   ): Promise<AuditoriaDto> {
     const data = await this.service.findByIdConAuditoria(id);
     return data;
+  }
+
+  @Get(':id/historial-precios')
+  @Roles('Root', 'Administrador', 'Empleado')
+  @ApiOkResponse({
+    description: 'Historial de cambios de precio del producto',
+    type: [HistorialPrecio],
+  })
+  async obtenerHistorialPrecios(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<HistorialPrecio[]> {
+    this.logger.log(`Consultando historial de precios para Producto ID: ${id}`);
+    return this.service.obtenerHistorialPrecios(id);
   }
 }

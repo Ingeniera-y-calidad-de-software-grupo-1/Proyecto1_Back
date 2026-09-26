@@ -6,9 +6,8 @@ describe('Precio Value Object', () => {
     expect(precio.valor).toBe(1150);
   });
 
-  it('debe permitir precio cero', () => {
-    const precio = new Precio(0);
-    expect(precio.valor).toBe(0);
+  it('TP-CR007-02: debe rechazar precio cero', () => {
+    expect(() => new Precio(0)).toThrow('El precio debe ser mayor a cero');
   });
 
   it('debe conservar el valor exacto con decimales sin transformarlo arbitrariamente', () => {
@@ -19,9 +18,9 @@ describe('Precio Value Object', () => {
     expect(precio2.valor).toBe(114.9885);
   });
 
-  it('debe rechazar precios negativos', () => {
-    expect(() => new Precio(-1)).toThrow('El precio no puede ser negativo');
-    expect(() => new Precio(-0.01)).toThrow('El precio no puede ser negativo');
+  it('TP-CR007-03: debe rechazar precios negativos', () => {
+    expect(() => new Precio(-1)).toThrow('El precio debe ser mayor a cero');
+    expect(() => new Precio(-0.01)).toThrow('El precio debe ser mayor a cero');
   });
 
   it('debe rechazar valores inválidos (NaN, Infinity, no numéricos)', () => {

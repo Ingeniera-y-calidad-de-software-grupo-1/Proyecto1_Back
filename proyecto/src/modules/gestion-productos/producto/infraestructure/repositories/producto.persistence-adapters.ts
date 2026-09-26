@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Transactional } from 'src/modules/common/decorators/transactional.decoratos';
 import { DatabaseConnectionException } from 'src/modules/common/exceptions/database-connection.exception';
@@ -9,6 +9,8 @@ import { Marca } from 'src/modules/gestion-productos/marca/domain/entities/marca
 import { Usuario } from 'src/modules/gestion-usuario/usuario/domain/entities/usuario.entity';
 import { Repository, IsNull, DataSource } from 'typeorm';
 import { Producto } from '../../domain/entities/producto.entity';
+import { HistorialPrecio } from '../../domain/entities/historial-precio.entity';
+import { IHistorialPrecioRepository } from '../../domain/interfaces/historial-precio.repository-interface';
 import { IProductoRepository, BuscarProductoCriteria } from '../../domain/interfaces/producto.repository-interface';
 import { CreateProductoDto } from '../../dto/create-producto.dto';
 import { UpdatePrecioDto } from '../../dto/update-precio.dto';
@@ -35,6 +37,8 @@ export class ProductoPersistenceAdapter implements IProductoRepository {
     private readonly repository: Repository<Producto>,
     private readonly dataSource: DataSource,
     @Inject('UnitOfWork') public readonly uow: IUnitOfWork,
+    @Inject('IHistorialPrecioRepository')
+    private readonly historialPrecioRepository: IHistorialPrecioRepository,
   ) { }
 
 
@@ -168,8 +172,8 @@ export class ProductoPersistenceAdapter implements IProductoRepository {
     data: UpdateProductoDto,
     linea: Linea,
     marca: Marca,
-
     usuario: Usuario,
+    historialPrecio?: HistorialPrecio,
   ): Promise<Producto> {
     const repo = this.uow.getRepository(Producto);
     try {
@@ -179,7 +183,7 @@ export class ProductoPersistenceAdapter implements IProductoRepository {
         throw new NotFoundException(`EL prodcuto con ID ${id} no encontrada`);
       }
       const {
-
+        motivoCambioPrecio,
         ...dataSinItems
       } = data;
 
@@ -195,9 +199,15 @@ export class ProductoPersistenceAdapter implements IProductoRepository {
       entity.usuarioUpdated = usuario; 
       const entityActualizada = await repo.save(entity);
 
+      if (historialPrecio) {
+        await this.historialPrecioRepository.guardar(historialPrecio, this.uow);
+      }
 
       return entityActualizada;
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
       this.logger.warn(`Items para eliminar: )}`);
 
       throw new DatabaseConnectionException(error);

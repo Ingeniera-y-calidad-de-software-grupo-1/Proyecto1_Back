@@ -49,14 +49,13 @@ describe('Producto Aggregate Root - calcularPrecio()', () => {
     expect(producto.precio).toBe(1150);
   });
 
-  it('debe manejar costo cero dando precio cero', () => {
+  it('debe rechazar el cálculo si el costo cero resulta en precio cero (invariante precio > 0)', () => {
     producto.costo = 0;
     producto.porcentaje = 15;
 
-    const precio = producto.calcularPrecio();
-
-    expect(precio.valor).toBe(0);
-    expect(producto.precio).toBe(0);
+    expect(() => producto.calcularPrecio()).toThrow(
+      'El precio debe ser mayor a cero',
+    );
   });
 
   it('debe calcular precios con decimales conservando el valor resultante', () => {

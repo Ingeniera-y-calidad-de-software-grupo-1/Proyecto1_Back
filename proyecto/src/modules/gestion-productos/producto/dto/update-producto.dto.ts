@@ -33,5 +33,11 @@ export class UpdateProductoDto extends PartialType(CreateProductoDto) {
   @IsInt({ message: 'El usuarioUpdatedId debe ser un número entero.' })
   usuarioUpdatedId: number;
 
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString({ message: 'El motivo del cambio de precio debe ser una cadena de texto.' })
+  @MaxLength(255, { message: 'El motivo del cambio de precio no puede superar los 255 caracteres.' })
+  motivoCambioPrecio?: string;
+
   updatedAt?: Date;
 }

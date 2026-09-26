@@ -63,6 +63,7 @@ describe('ProductoService - CR-002 (Presentación del Producto)', () => {
       mockUniquenessValidator,
       mockUsuarioValidator,
       mockProductoDeletePolicy,
+      {} as any,
     );
   });
 

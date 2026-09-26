@@ -24,6 +24,7 @@ describe('ProductoPersistenceAdapter - QueryBuilder CR-004', () => {
       mockRepository,
       {} as any,
       {} as any,
+      {} as any,
     );
   });
 
